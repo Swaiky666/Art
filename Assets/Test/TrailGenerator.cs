@@ -111,7 +111,7 @@ public class TrailGenerator : MonoBehaviour
         );
 
         // 生成prefab
-        Instantiate(prefabToSpawn, spawnPosition, Quaternion.identity);
+        Instantiate(prefabToSpawn, spawnPosition, prefabToSpawn.transform.rotation);
     }
 
     // 添加新的目标transform
