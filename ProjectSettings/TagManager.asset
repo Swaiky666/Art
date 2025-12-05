@@ -5,11 +5,12 @@ TagManager:
   serializedVersion: 2
   tags:
   - Water
+  - WaterHeight
   layers:
   - Default
   - TransparentFX
   - Ignore Raycast
-  - 
+  - WaterHeight
   - Water
   - UI
   - 

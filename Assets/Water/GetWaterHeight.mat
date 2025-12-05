@@ -7,8 +7,8 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Water
-  m_Shader: {fileID: 4800000, guid: 0db8b90b04f3e489f92c44cec87bdf16, type: 3}
+  m_Name: GetWaterHeight
+  m_Shader: {fileID: 4800000, guid: edacf424c4c72480db33c748d4665aaf, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -16,7 +16,7 @@ Material:
   m_LightmapFlags: 0
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
-  m_CustomRenderQueue: 3000
+  m_CustomRenderQueue: -1
   stringTagMap: {}
   disabledShaderPasses: []
   m_LockedProperties: 
@@ -96,7 +96,7 @@ Material:
     - _Mode: 0
     - _OcclusionStrength: 1
     - _Parallax: 0.02
-    - _RippleValue: 1.8
+    - _RippleValue: 1.5
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
     - _SrcBlend: 1
@@ -109,9 +109,9 @@ Material:
     - _UVSec: 0
     - _ZWrite: 1
     - __dirty: 0
-    - _waveOffset: 0.007
+    - _waveOffset: 0.003
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
-    - _RippleColor: {r: 0.7877358, g: 0.95451486, b: 1, a: 1}
+    - _RippleColor: {r: 0.6719473, g: 0.88522863, b: 0.9433962, a: 1}
   m_BuildTextureStacks: []
