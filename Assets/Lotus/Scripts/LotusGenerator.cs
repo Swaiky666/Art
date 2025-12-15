@@ -48,7 +48,7 @@ public class LotusGenerator : MonoBehaviour
             return;
         }
 
-        // 1. 清理旧对象
+        // 1. Clear old objects
         if (destroyExisting)
         {
             ClearGeneratedFlowers();
@@ -63,18 +63,18 @@ public class LotusGenerator : MonoBehaviour
         float startX = containerCenter.x - generationAreaSize / 2f;
         float startZ = containerCenter.z - generationAreaSize / 2f;
 
-        // **修改点 1: 移除 spawnHeightY 的预先计算，Y 高度将在 SpawnFlower 中计算**
+        // **Modification 1: Removed pre-calculation of spawnHeightY. Y height will be calculated in SpawnFlower.**
 
-        // 2. 遍历采样点
+        // 2. Iterate through sample points
         for (int i = 0; i < sampleResolution; i++)
         {
             for (int j = 0; j < sampleResolution; j++)
             {
-                // 计算当前网格点的世界中心坐标
+                // Calculate the world center coordinates of the current grid point
                 float gridX = startX + i * stepSize + stepSize / 2f;
                 float gridZ = startZ + j * stepSize + stepSize / 2f;
 
-                // 3. 采样噪声图 (逻辑不变)
+                // 3. Sample the noise map (logic remains unchanged)
                 float u = (float)i / sampleResolution;
                 float v = (float)j / sampleResolution;
 
@@ -86,14 +86,14 @@ public class LotusGenerator : MonoBehaviour
 
                 float noiseValue = noiseTexture.GetPixel(pixelX, pixelY).r;
 
-                // 4. 应用密度/阈值控制 (概率生成)
+                // 4. Apply density/threshold control (probabilistic spawning)
                 if (noiseValue >= minSpawnThreshold)
                 {
                     float spawnProbability = (noiseValue - minSpawnThreshold) / (1.0f - minSpawnThreshold);
 
                     if (Random.value < spawnProbability)
                     {
-                        // 5. 添加随机偏差 (Jittering)
+                        // 5. Add random offset (Jittering)
                         float maxJitter = stepSize * maxJitterPercentage;
 
                         float offsetX = Random.Range(-maxJitter, maxJitter);
@@ -101,11 +101,11 @@ public class LotusGenerator : MonoBehaviour
 
                         Vector3 spawnPositionXZ = new Vector3(
                             gridX + offsetX,
-                            0, // Y 暂时设为 0，在 SpawnFlower 中根据 Prefab 调整
+                            0, // Y temporarily set to 0, adjusted based on Prefab in SpawnFlower
                             gridZ + offsetZ
                         );
 
-                        // 6. 生成花朵
+                        // 6. Spawn the flower
                         SpawnFlower(spawnPositionXZ);
                     }
                 }
@@ -115,49 +115,49 @@ public class LotusGenerator : MonoBehaviour
 
     private void SpawnFlower(Vector3 positionXZ)
     {
-        // 随机选择一个 Prefab
+        // Randomly select a Prefab
         int prefabIndex = Random.Range(0, flowerPrefabs.Count);
         GameObject selectedPrefab = flowerPrefabs[prefabIndex];
 
         if (selectedPrefab == null) return;
 
-        // **修改点 2: Y 轴高度计算**
+        // **Modification 2: Y-axis height calculation**
 
-        // 获取容器的世界 Y 坐标
+        // Get the world Y coordinate of the container
         float containerY = transform.position.y;
 
-        // 获取 Prefab 预设的局部 Y 偏移 (即 Prefab 相对于其自身原点的 Y 坐标)
+        // Get the local Y offset of the Prefab (i.e., the Y coordinate of the Prefab relative to its own origin)
         float prefabOffsetY = selectedPrefab.transform.position.y;
 
-        // 最终的世界 Y 坐标 = 容器 Y + Prefab 预设的 Y 偏移
+        // Final world Y coordinate = Container Y + Prefab Y offset
         float finalYPosition = containerY + prefabOffsetY;
 
-        // 组合最终的世界坐标
+        // Combine the final world coordinates
         Vector3 finalPosition = new Vector3(positionXZ.x, finalYPosition, positionXZ.z);
 
 
-        // --- 旋转逻辑 (保持不变) ---
+        // --- Rotation Logic (remains unchanged) ---
 
-        // 获取 Prefab 预设的欧拉角
+        // Get the Euler angles of the Prefab
         Vector3 prefabEuler = selectedPrefab.transform.rotation.eulerAngles;
 
-        // 随机生成绕 Y 轴（世界Z轴）的旋转角度
+        // Randomly generate rotation angle around the Y-axis (World Z-axis)
         float randomYRotation = Random.Range(0f, 360f);
 
-        // 构造最终的旋转：保留 Prefab 的 X 和 Z，随机化 Y
+        // Construct the final rotation: keep Prefab's X and Z, randomize Y
         Quaternion finalRotation = Quaternion.Euler(
             prefabEuler.x,
             randomYRotation,
             prefabEuler.z
         );
 
-        // 实例化花朵，并设置当前对象 (transform) 为父级 (容器)
+        // Instantiate the flower, and set the current object (transform) as the parent (container)
         GameObject flower = Instantiate(selectedPrefab, finalPosition, finalRotation, transform);
 
         flower.name = $"Flower (Threshold:{minSpawnThreshold:F2}, X:{finalPosition.x:F1}, Z:{finalPosition.z:F1})";
     }
 
-    // --- 清除方法 ---
+    // --- Cleanup Method ---
     public void ClearGeneratedFlowers()
     {
         int childCount = transform.childCount;

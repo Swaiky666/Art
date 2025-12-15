@@ -12,7 +12,7 @@ public class LotusGeneratorEditor : Editor
 
         EditorGUILayout.Space(15);
 
-        // 1. 清除按钮
+        // 1. Clear Button
         GUI.backgroundColor = Color.red;
         if (GUILayout.Button("Clear Generated Flowers"))
         {
@@ -22,7 +22,7 @@ public class LotusGeneratorEditor : Editor
 
         EditorGUILayout.Space(10);
 
-        // 2. 生成按钮
+        // 2. Generate Button
         if (GUILayout.Button("Generate Lotus Field"))
         {
             generator.GenerateLotusField();

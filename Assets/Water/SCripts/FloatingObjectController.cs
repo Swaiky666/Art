@@ -1,39 +1,48 @@
 using UnityEngine;
 
 /// <summary>
-/// 核心水面控制器，负责周期性地从 GPU 的 RenderTexture 读取动态水波高度数据，
-/// 并通过公共方法将这些高度信息提供给场景中的浮动物体（如船只和植物）。
+/// Core water surface controller.
+/// Periodically reads dynamic water height data from a GPU RenderTexture,
+/// stores it on the CPU, and provides public height queries for floating objects
+/// such as boats or plants.
 /// </summary>
 public class FloatingObjectController : MonoBehaviour
 {
-    // --- 外部引用 ---
-    
-    [Header("水面参数")]
-    [Tooltip("由 HeightmapRenderer 输出的 RenderTexture，包含动态水波高度。")]
+    // --- External References ---
+
+    [Header("Water Parameters")]
+    [Tooltip("RenderTexture output by the HeightmapRenderer, containing dynamic water height data.")]
     public RenderTexture waterHeightRT;
-    
-    [Tooltip("水面 Plane 的 Renderer 组件，用于获取边界信息，将世界坐标映射到 RT UV。")]
+
+    [Tooltip("Renderer of the water plane, used to obtain bounds and map world positions to RT UVs.")]
     public Renderer waterPlaneRenderer;
 
-    [Header("浮力/高度设置")]
-    [Tooltip("高度缩放系数。读取到的水波高度会乘以此系数再作用于物体。1.0 为默认强度。")]
-    public float heightScaleFactor = 1.0f; 
+    [Header("Buoyancy / Height Settings")]
+    [Tooltip("Height scaling factor applied to sampled wave height. 1.0 means default intensity.")]
+    public float heightScaleFactor = 1.0f;
 
-    [Header("性能控制")]
-    [Tooltip("每隔多少秒从 GPU 读取一次数据。值越小越精确，性能开销越大。")]
-    public float readInterval = 0.3f; 
-    
-    // --- 内部变量 ---
+    [Header("Performance Control")]
+    [Tooltip("Time interval (seconds) between GPU readbacks. Smaller values are more accurate but more expensive.")]
+    public float readInterval = 0.3f;
+
+    [Header("UV Fix (If ripple direction looks mirrored)")]
+    [Tooltip("Flip U (left-right). Enable if the effect is mirrored horizontally.")]
+    public bool flipU = false;
+
+    [Tooltip("Flip V (up-down). Enable if the effect is mirrored vertically. This is commonly needed.")]
+    public bool flipV = true;
+
+    // --- Internal Variables ---
     private Texture2D cpuHeightMap;
     private float nextReadTime = 0f;
-    private float baseWaterLevel; // 水面基准Y轴高度
-    private Bounds waterBounds;   // 水面边界
+    private float baseWaterLevel; // Base Y level of the water surface
+    private Bounds waterBounds;   // World-space bounds of the water plane
 
     void Start()
     {
         if (waterHeightRT == null || waterPlaneRenderer == null)
         {
-            Debug.LogError("请设置 waterHeightRT 和 waterPlaneRenderer 引用。");
+            Debug.LogError("waterHeightRT and waterPlaneRenderer must be assigned.");
             enabled = false;
             return;
         }
@@ -41,17 +50,21 @@ public class FloatingObjectController : MonoBehaviour
         baseWaterLevel = waterPlaneRenderer.transform.position.y;
         waterBounds = waterPlaneRenderer.bounds;
 
-        // 初始化 CPU 端的 Texture2D 副本，用于存储 GPU 读取的数据。
-        // 使用 RHalf 格式（半精度浮点数），适用于高度数据。
-        TextureFormat targetFormat = TextureFormat.RHalf; 
-        
-        // 构造函数: (宽度, 高度, 格式, 是否生成Mips)
-        cpuHeightMap = new Texture2D(waterHeightRT.width, waterHeightRT.height, targetFormat, false);
+        // Initialize CPU-side Texture2D to store GPU readback data.
+        // RHalf format (half-precision float) is suitable for height data.
+        TextureFormat targetFormat = TextureFormat.RHalf;
+
+        cpuHeightMap = new Texture2D(
+            waterHeightRT.width,
+            waterHeightRT.height,
+            targetFormat,
+            false
+        );
     }
 
     void Update()
     {
-        // 周期性地执行 GPU 到 CPU 的数据回读 (Readback)
+        // Periodically perform GPU → CPU readback
         if (Time.time >= nextReadTime)
         {
             ReadHeightmapFromGPU();
@@ -60,46 +73,56 @@ public class FloatingObjectController : MonoBehaviour
     }
 
     /// <summary>
-    /// 执行同步的 GPU 数据回读。此操作会阻塞 CPU，因此要控制频率。
+    /// Performs a synchronous GPU readback.
+    /// This operation blocks the CPU, so the call frequency should be limited.
     /// </summary>
     void ReadHeightmapFromGPU()
     {
-        // 确保 RT 数据有效
+        if (waterHeightRT == null) return;
         if (waterHeightRT.width == 0 || waterHeightRT.height == 0) return;
-        
+
         RenderTexture.active = waterHeightRT;
-        // 将整个 RenderTexture 的像素数据读取到 CPU 的 Texture2D 副本中
-        cpuHeightMap.ReadPixels(new Rect(0, 0, waterHeightRT.width, waterHeightRT.height), 0, 0);
-        cpuHeightMap.Apply(); // 应用更改，使 GetPixel 可用
+
+        // Read the entire RenderTexture into the CPU Texture2D
+        cpuHeightMap.ReadPixels(
+            new Rect(0, 0, waterHeightRT.width, waterHeightRT.height),
+            0,
+            0
+        );
+
+        cpuHeightMap.Apply(); // Apply changes so GetPixel is valid
         RenderTexture.active = null;
     }
 
     /// <summary>
-    /// 【公共查询函数】供场景中的物体（如水植物）查询缩放后的水面高度。
+    /// Public query function.
+    /// Allows scene objects (e.g., water plants) to query the scaled water height.
     /// </summary>
-    /// <param name="worldPos">查询点的世界坐标。</param>
-    /// <returns>该点的世界水面高度（包含缩放偏移）。</returns>
+    /// <param name="worldPos">World-space position to sample.</param>
+    /// <returns>Final world-space water height at this position.</returns>
     public float GetScaledWaterHeight(Vector3 worldPos)
     {
-        // 检查数据是否已准备好
-        if (cpuHeightMap == null) return baseWaterLevel; 
+        if (cpuHeightMap == null || waterHeightRT == null) return baseWaterLevel;
 
-        // 1. 世界坐标到 UV (0-1) 的映射
-        // 使用水面边界将世界坐标映射到 0 到 1 的 UV 范围
+        // 1) World position -> UV (0..1) using water plane bounds
         float u = (worldPos.x - waterBounds.min.x) / waterBounds.size.x;
         float v = (worldPos.z - waterBounds.min.z) / waterBounds.size.z;
-        
-        // 2. UV 坐标到像素坐标的映射
+
+        // Optional UV flipping to match RenderTexture orientation
+        if (flipU) u = 1f - u;
+        if (flipV) v = 1f - v;
+
+        // 2) UV -> pixel coordinates
         int x = Mathf.Clamp(Mathf.FloorToInt(u * waterHeightRT.width), 0, waterHeightRT.width - 1);
         int y = Mathf.Clamp(Mathf.FloorToInt(v * waterHeightRT.height), 0, waterHeightRT.height - 1);
 
-        // 3. 从 CPU 副本中获取原始高度偏移值
+        // 3) Sample raw height offset from CPU texture
         float originalOffset = cpuHeightMap.GetPixel(x, y).r;
-        
-        // 4. 应用用户定义的缩放系数 (heightScaleFactor)
+
+        // 4) Apply user-defined scaling
         float scaledOffset = originalOffset * heightScaleFactor;
-        
-        // 5. 计算最终目标世界高度
+
+        // 5) Compute final world-space height
         return baseWaterLevel + scaledOffset;
     }
 
